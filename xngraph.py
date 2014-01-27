@@ -55,7 +55,7 @@ class XNReader:
     if t.getroot().tag != '{{{}}}Network'.format(XNReader.NS):
       raise Exception('Invalid namespace, should be {}'.format(XNReader.NS))
     for Node in [ x for x in t.iter('{{{}}}Node'.format(XNReader.NS))
-      if x.attrib['Id'] not in ign ]:
+      if x.attrib['Id'] not in ignorenodes ]:
       freqs = { 'Oscillator': 20e6,
         'SystemFrequency': 400e6,
         'ReferenceFrequency': 100e6 }
@@ -69,7 +69,7 @@ class XNReader:
       if 'Delays' in Link.attrib:
         delays = Link.attrib['Delays']
       Ends = Link.findall('{{{}}}LinkEndpoint'.format(XNReader.NS))
-      if any(map(lambda(x): x.attrib['NodeId'] in ign, Ends)):
+      if any(map(lambda(x): x.attrib['NodeId'] in ignorenodes, Ends)):
         continue #Skip links involving ignored nodes
       if 'Delays' in Ends[0].attrib:
         ldelay = Ends[0].attrib['Delays']
@@ -77,16 +77,16 @@ class XNReader:
         ldelay = delays
       self.links.append({'src':Ends[0].attrib['NodeId'],
         'dst': Ends[1].attrib['NodeId'],
-        'enc': encoding,
-        'del': ldelay})
+        'attr': { 'enc': encoding,
+        'del': ldelay } } )
       if 'Delays' in Ends[1].attrib:
         ldelay = Ends[1].attrib['Delays']
       else:
         ldelay = delays
       self.links.append({'src':Ends[1].attrib['NodeId'],
         'dst': Ends[0].attrib['NodeId'],
-        'enc': encoding,
-        'del': ldelay})
+        'attr': { 'enc': encoding,
+        'del': ldelay} } )
   
   def FreqConv(self,value):
     """Convert frequencies with (M|K)Hz in them to floats"""
@@ -114,6 +114,6 @@ if __name__ == '__main__':
   ];
     """.format(n,a['Oscillator'],a['ReferenceFrequency'],a['SystemFrequency'])
   for l in XNR.links:
-    print """  {} -> {} [label="{},{}"];""".format(l['src'],l['dst'], l['enc'],
-      l['del'])
+    print """  {} -> {} [label="{},{}"];""".format(l['src'],l['dst'],
+      l['attr']['enc'], l['attr']['del'])
   print '}'
