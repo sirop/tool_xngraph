@@ -47,32 +47,50 @@ import re
 class XNReader:
   # XMOS XN file namespace
   NS = 'http://www.xmos.com'
+  common_tilerefs = ['stdcore','stdtile','tile']
 
-  def __init__(self,XNFilename,ignorenodes=[]):
+  def __init__(self,XNFilename,ignorenodes=[],tilerefs=[]):
     t = ET.parse(XNFilename)
     self.nodes = {}
     self.links = []
+    self.tilerefs = XNReader.common_tilerefs + tilerefs
+    if not ignorenodes:
+      ignorenodes = []
     if t.getroot().tag != '{{{}}}Network'.format(XNReader.NS):
       raise Exception('Invalid namespace, should be {}'.format(XNReader.NS))
     for Node in [ x for x in t.iter('{{{}}}Node'.format(XNReader.NS))
-      if x.attrib['Id'] not in ignorenodes ]:
-      freqs = { 'Oscillator': 20e6,
+      if x.attrib['Id'] not in ignorenodes and not ("Type" in x.attrib and
+      x.attrib['Type'] == "device:") ]:
+      attrs = { 'Oscillator': 20e6,
         'SystemFrequency': 400e6,
-        'ReferenceFrequency': 100e6 }
-      freqs.update( [(x,self.FreqConv(Node.attrib[x]))
-        for x in freqs.keys() if x in Node.attrib] )
-      self.nodes[Node.attrib['Id']] = freqs
+        'ReferenceFrequency': 100e6,
+        'ref': Node.attrib['Id']}
+      attrs.update( [(x,self.FreqConv(Node.attrib[x]))
+        for x in attrs.keys() if x in Node.attrib] )
+      if 'Type' in Node.attrib and Node.attrib['Type'][:7] == 'periph:':
+        attrs['p'] = True
+      for core in Node.iter('{{{}}}Core'.format(XNReader.NS)):
+        m = re.search( r'\[(.*?)\]', core.attrib.get( 'Reference',
+          'tile[{}]'.format(Node.attrib['Id']) ) )
+        attrs['ref'] = int(m.group(1))
+        break #To-do, if we ever have multi-core nodes, handle them!
+      self.nodes[Node.attrib['Id']] = attrs
     for Link in t.iter('{{{}}}Link'.format(XNReader.NS)):
       if 'Flags' in Link.attrib and Link.attrib['Flags'] in ["SOD","XSCOPE"]:
         continue #Skip XScope!
-      encoding = Link.attrib['Encoding'][0]
+      if 'direction' in Link.attrib:
+        continue #Skip directional link data
+      if 'Encoding' in Link.attrib:
+        encoding = Link.attrib['Encoding'][0]
+      else:
+        encoding = '2'
       if 'Delays' in Link.attrib:
-        delays = Link.attrib['Delays']
+        delays = Link.attrib['Delays'].replace('clk','')
       Ends = Link.findall('{{{}}}LinkEndpoint'.format(XNReader.NS))
       if any(map(lambda(x): x.attrib['NodeId'] in ignorenodes, Ends)):
         continue #Skip links involving ignored nodes
       if 'Delays' in Ends[0].attrib:
-        ldelay = Ends[0].attrib['Delays']
+        ldelay = Ends[0].attrib['Delays'].replace('clk','')
       else:
         ldelay = delays
       self.links.append({'src':Ends[0].attrib['NodeId'],
@@ -80,7 +98,7 @@ class XNReader:
         'attr': { 'enc': encoding,
         'del': ldelay } } )
       if 'Delays' in Ends[1].attrib:
-        ldelay = Ends[1].attrib['Delays']
+        ldelay = Ends[1].attrib['Delays'].replace('clk','')
       else:
         ldelay = delays
       self.links.append({'src':Ends[1].attrib['NodeId'],
@@ -105,14 +123,21 @@ if __name__ == '__main__':
     ign = arguments['--ignore-nodes'].split(',')
   XNR = XNReader(arguments['<xnfile>'],ign)
   # Initial DOT setup
-  print 'digraph {} {{'.format(''.join(arguments['<xnfile>'].split('.')[:-1]))
+  print 'digraph "{}" {{'.format(''.join(arguments['<xnfile>'].split('.')[:-1]))
   print '  rankdir=LR'
   for n,a in XNR.nodes.items():
+    if 'p' in a and a['p']:
+      realname = n + ' (periph)'
+    elif 'ref' in a and n != str(a['ref']):
+      realname = '{} [{}]'.format(n,a['ref'])
+    else:
+      realname = n
     print """  "{0}" [
     shape = "record"
-    label = "{0} | {1:e} / {2:e} / {3:e}"
+    label = "{4} | {1:e} / {2:e} / {3:e}"
   ];
-    """.format(n,a['Oscillator'],a['ReferenceFrequency'],a['SystemFrequency'])
+    """.format(n, a['Oscillator'], a['ReferenceFrequency'],
+      a['SystemFrequency'], realname)
   for l in XNR.links:
     print """  {} -> {} [label="{},{}"];""".format(l['src'],l['dst'],
       l['attr']['enc'], l['attr']['del'])
