@@ -48,7 +48,7 @@ class XNReader:
   # XMOS XN file namespace
   NS = 'http://www.xmos.com'
   common_tilerefs = ['stdcore','stdtile','tile']
-  linkMap = {
+  linkmap = {
       'A': 2,
       'B': 3,
       'C': 0,
