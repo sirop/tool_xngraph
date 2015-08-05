@@ -48,6 +48,16 @@ class XNReader:
   # XMOS XN file namespace
   NS = 'http://www.xmos.com'
   common_tilerefs = ['stdcore','stdtile','tile']
+  linkMap = {
+      'A': 2,
+      'B': 3,
+      'C': 0,
+      'D': 1,
+      'E': 6,
+      'F': 7,
+      'G': 4,
+      'H': 5
+  }
 
   def __init__(self,XNFilename,ignorenodes=[],tilerefs=[]):
     t = ET.parse(XNFilename)
@@ -95,6 +105,7 @@ class XNReader:
         ldelay = delays
       self.links.append({'src':Ends[0].attrib['NodeId'],
         'dst': Ends[1].attrib['NodeId'],
+        'num': self.linkmap[Ends[0].attrib['Link'][-1]],
         'attr': { 'enc': encoding,
         'del': ldelay } } )
       if 'Delays' in Ends[1].attrib:
@@ -103,6 +114,7 @@ class XNReader:
         ldelay = delays
       self.links.append({'src':Ends[1].attrib['NodeId'],
         'dst': Ends[0].attrib['NodeId'],
+        'num': self.linkmap[Ends[1].attrib['Link'][-1]],
         'attr': { 'enc': encoding,
         'del': ldelay} } )
   
