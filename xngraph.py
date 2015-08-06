@@ -94,7 +94,7 @@ class XNReader:
             attrs.update([(x, self.FreqConv(Node.attrib[x])) for x in
                           attrs.keys() if x in Node.attrib])
             if 'RoutingId' in Node.attrib:
-                attrs['RoutingId'] = Node.attrib['RoutingId']
+                attrs['RoutingId'] = int(Node.attrib['RoutingId'])
             if 'Type' in Node.attrib and Node.attrib['Type'][:7] == 'periph:':
                 attrs['p'] = True
             for core in Node.iter('{{{}}}Core'.format(XNReader.NS)):
@@ -111,9 +111,9 @@ class XNReader:
             if 'direction' in Link.attrib:
                 continue  # Skip directional link data
             if 'Encoding' in Link.attrib:
-                encoding = Link.attrib['Encoding'][0]
+                encoding = int(Link.attrib['Encoding'][0])
             else:
-                encoding = '2'
+                encoding = 2
             if 'Delays' in Link.attrib:
                 delays = Link.attrib['Delays'].replace('clk', '')
             Ends = Link.findall('{{{}}}LinkEndpoint'.format(XNReader.NS))
